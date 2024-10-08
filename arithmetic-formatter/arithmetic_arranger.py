@@ -1,38 +1,59 @@
-def arithmetic_arranger(problems, results=False):
-    if len(problems) > 5:
+ALLOWED_ARITHMETIC_OPERATORS = ['+', '-']
+MAXIMUM_NUMBER_OF_PROBLEMS = 5
+MAXIMUM_DIGITS_PER_OPERAND = 4
+SEPARATOR_BETWEEN_PROBLEMS = ' ' * 4
+# Define the width adjustment to account for the operator and the separation space
+WIDTH_ADJUSTMENT = 2
+
+
+def validate_problem(problem: str):
+    first_operand, operator, second_operand = problem.split(' ')
+
+    if operator not in ALLOWED_ARITHMETIC_OPERATORS:
+        return "Error: Operator must be '+' or '-'."
+
+    if not (first_operand.isdigit() and second_operand.isdigit()):
+        return "Error: Numbers must only contain digits."
+
+    if len(first_operand) > MAXIMUM_DIGITS_PER_OPERAND or len(second_operand) > MAXIMUM_DIGITS_PER_OPERAND:
+        return "Error: Numbers cannot be more than four digits."
+
+    return None
+
+
+def calculate_result(first_operand: str, operator: str, second_operand: str) -> str:
+    match operator:
+        case '+':
+            return str(int(first_operand) + int(second_operand))
+        case '-':
+            return str(int(first_operand) - int(second_operand))
+
+
+def arithmetic_arranger(problems: list[str], results=False):
+    if len(problems) > MAXIMUM_NUMBER_OF_PROBLEMS:
         return "Error: Too many problems."
 
-    first_line = second_line = third_line = fourth_line = ""
+    lines = ['', '', '', '']
+
     for problem in problems:
-        first_operand, operator, second_operand = problem.split(" ")
+        first_operand, operator, second_operand = problem.split(' ')
 
-        if operator not in ["+", "-"]:
-            return "Error: Operator must be '+' or '-'."
+        error_message = validate_problem(problem)
+        if error_message:
+            return error_message
 
-        if not (first_operand.isdigit() and second_operand.isdigit()):
-            return "Error: Numbers must only contain digits."
+        result = calculate_result(first_operand, operator, second_operand)
 
-        if len(first_operand) > 4 or len(second_operand) > 4:
-            return "Error: Numbers cannot be more than four digits."
+        width = max(len(first_operand), len(second_operand)) + WIDTH_ADJUSTMENT
 
-        if operator == "+":
-            result = str(int(first_operand) + int(second_operand))
-        else:
-            result = str(int(first_operand) - int(second_operand))
+        lines[0] += first_operand.rjust(width) + SEPARATOR_BETWEEN_PROBLEMS
+        lines[1] += operator + second_operand.rjust(width - len(operator)) + SEPARATOR_BETWEEN_PROBLEMS
+        lines[2] += '-' * width + SEPARATOR_BETWEEN_PROBLEMS
+        lines[3] += result.rjust(width) + SEPARATOR_BETWEEN_PROBLEMS
 
-        width = max(len(first_operand), len(second_operand)) + 2
-        first_line += " " * (width - len(first_operand)) + first_operand + "    "
-        second_line += (
-            operator + " " * (width - len(second_operand) - 1) + second_operand + "    "
-        )
-        third_line += "-" * width + "    "
-        fourth_line += " " * (width - len(result)) + result + "    "
-
-    arranged_problems = (
-        first_line.rstrip() + "\n" + second_line.rstrip() + "\n" + third_line.rstrip()
-    )
+    arranged_problems = '\n'.join(line.rstrip() for line in lines[:-1])
 
     if results:
-        arranged_problems += "\n" + fourth_line.rstrip()
+        arranged_problems += '\n' + lines[3].rstrip()
 
     return arranged_problems
