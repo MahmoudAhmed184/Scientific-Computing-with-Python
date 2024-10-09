@@ -1,84 +1,100 @@
+CHARS_PER_LINE = 30
+MAX_DESCRIPTION_LENGTH = 23
+MAX_AMOUNT_LENGTH = 7
+MAX_PERCENTAGE = 100
+MIN_PERCENTAGE = 0
+PERCENTAGE_STEP = 10
+MAX_PERCENTAGE_LENGTH = 3
+DASHES_PER_CATEGORY = 3
+
+
 class Category:
-    def __init__(self, category):
+    def __init__(self, name: str):
         self.ledger = []
-        self.category = category
+        self.name = name
+        self.balance = 0.0
+        self.total_spent = 0.0
 
     def __str__(self):
-        string = f"{self.category}".center(30, "*") + "\n"
-        for transaction in self.ledger:
-            amount = transaction["amount"]
-            description = transaction["description"]
-            string += description[:23].ljust(23) + f"{amount:.2f}".rjust(7) + "\n"
-        string += f"Total: {self.get_balance():.2f}"
-        return string
+        header = f"{self.name}".center(CHARS_PER_LINE, "*") + "\n"
+        transactions = "".join(
+            f"{transaction['description'][:MAX_DESCRIPTION_LENGTH].ljust(MAX_DESCRIPTION_LENGTH)}"
+            + f"{transaction['amount']:.2f}".rjust(MAX_AMOUNT_LENGTH)
+            + "\n"
+            for transaction in self.ledger
+        )
+        total = f"Total: {self.balance:.2f}"
+        return header + transactions + total
 
-    def deposit(self, amount, description=""):
+    def deposit(self, amount: float, description: str = ""):
         self.ledger.append({"amount": amount, "description": description})
+        self.balance += amount
 
-    def withdraw(self, amount, description=""):
+    def withdraw(self, amount: float, description: str = "") -> bool:
         if self.check_funds(amount):
             self.ledger.append({"amount": -amount, "description": description})
+            self.total_spent += amount
+            self.balance -= amount
             return True
-        else:
-            return False
+        return False
 
-    def get_balance(self):
-        balance = 0.0
-        for transaction in self.ledger:
-            balance += transaction["amount"]
-        return balance
+    def get_balance(self) -> float:
+        return self.balance
 
-    def transfer(self, amount, budget_category):
+    def transfer(self, amount: float, target_category: "Category") -> bool:
         if self.check_funds(amount):
-            self.withdraw(amount, f"Transfer to {budget_category.category}")
-            budget_category.deposit(amount, f"Transfer from {self.category}")
+            self.withdraw(amount, f"Transfer to {target_category.name}")
+            target_category.deposit(amount, f"Transfer from {self.name}")
             return True
-        else:
-            return False
+        return False
 
-    def check_funds(self, amount):
-        return amount <= self.get_balance()
+    def check_funds(self, amount: float) -> bool:
+        return self.balance >= amount
 
 
-def create_spend_chart(categories):
-    total_spends = 0
-    spend_percentages = []
+def round_down_to_nearest_ten(percentage: float) -> float:
+    return (percentage // 10) * 10
 
-    for category in categories:
-        category_spends = 0
-        for transaction in category.ledger:
-            if transaction["amount"] < 0:
-                category_spends -= transaction["amount"]
 
-        spend_percentages.append(category_spends)
-        total_spends += category_spends
+def calculate_spending_percentages(categories: list[Category]) -> list[float]:
+    total_spent = sum(category.total_spent for category in categories)
+    if total_spent == 0:
+        return [0] * len(categories)
+    return [
+        round_down_to_nearest_ten(category.total_spent * 100 / total_spent)
+        for category in categories
+    ]
 
-    number_of_categories = len(categories)
-    for i in range(number_of_categories):
-        spend_percentages[i] = spend_percentages[i] * 100 / total_spends // 10 * 10
-        print(spend_percentages[i])
 
-    chart = "Percentage spent by category\n"
-    for i in range(100, -10, -10):
-        chart += str(i).rjust(3) + "| "
+def build_percentage_lines(spending_percentages: list[float]) -> str:
+    percentage_lines = ""
+    for percentage in range(MAX_PERCENTAGE, MIN_PERCENTAGE - PERCENTAGE_STEP, -PERCENTAGE_STEP):
+        percentage_lines += f"{percentage:>{MAX_PERCENTAGE_LENGTH}}| "
+        percentage_lines += "".join(
+            "o  " if spending_percentage >= percentage else "   "
+            for spending_percentage in spending_percentages
+        )
+        percentage_lines += "\n"
+    return percentage_lines
 
-        for percent in spend_percentages:
-            if percent >= i:
-                chart += "o  "
-            else:
-                chart += "   "
-        chart += "\n"
 
-    chart += "    " + "-" * (number_of_categories * 3 + 1) + "\n"
+def build_category_name_lines(categories: list[Category]) -> str:
+    category_name_lines = ""
+    max_name_length = max(len(category.name) for category in categories)
 
-    longest_name_length = max([len(category.category) for category in categories])
-    for i in range(longest_name_length):
-        chart += "     "
+    for i in range(max_name_length):
+        category_name_lines += "     "
         for category in categories:
-            if i < len(category.category):
-                chart += category.category[i] + "  "
-            else:
-                chart += "   "
-        chart += "\n"
+            category_name_lines += (category.name[i] + "  ") if i < len(category.name) else "   "
+        category_name_lines += "\n"
 
+    return category_name_lines
+
+
+def create_spend_chart(categories: list[Category]) -> str:
+    spending_percentages = calculate_spending_percentages(categories)
+    chart = "Percentage spent by category\n"
+    chart += build_percentage_lines(spending_percentages)
+    chart += "    " + "-" * (len(categories) * DASHES_PER_CATEGORY + 1) + "\n"
+    chart += build_category_name_lines(categories)
     return chart.rstrip() + "  "
